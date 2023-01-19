@@ -18,6 +18,8 @@ void init_malloc(){
     isInitialized = 1;
 }
 
+
+
 void* ff_malloc(size_t size){
 	if (!isInitialized){
 		// initialize
@@ -31,7 +33,7 @@ void* ff_malloc(size_t size){
         BlockHead = (Block_t*)initial_block_start_addr;
 
         BlockHead->isAvailable = 0;
-        BlockHead->size = size;
+        BlockHead->size = size + sizeof(Block_t);
         BlockHead->prev = NULL;
         BlockHead->next = NULL;
         BlockTail = BlockHead;
@@ -59,8 +61,9 @@ void* ff_malloc(size_t size){
             Block_t* current_Block = (Block_t*)new_block_start_addr;
             current_Block->isAvailable = 0;
             current_Block->next = NULL;
-            current_Block->size = size;
+            current_Block->size = size + sizeof(Block_t);
             current_Block->prev = BlockTail;
+            current_Block->prev->next = current_Block;
             BlockTail = current_Block;
             ff_block_addr = new_block_start_addr;
         }
