@@ -20,6 +20,7 @@ int isInitialized;
 
 
 void removeNodeFromLinkedList(void* _deleteNode){
+    assert(_deleteNode != NULL);
     Block_t* deleteNode = _deleteNode;
     if (deleteNode == BlockHead){
         if (deleteNode == BlockTail){
@@ -32,6 +33,7 @@ void removeNodeFromLinkedList(void* _deleteNode){
         return;
     } else if (deleteNode == BlockTail){
         BlockTail = deleteNode->prev;
+        deleteNode->prev->next = NULL;
         return;
     } else{
         deleteNode->prev->next = deleteNode->next;
@@ -51,6 +53,13 @@ void addNodeToLinkedList(Block_t* addNode){
     }
 
     if (curr == BlockHead){
+        if (curr == NULL){
+            BlockTail = addNode;
+            addNode->next = NULL;
+            addNode->prev = NULL;
+            BlockHead = addNode;
+            return;
+        }
         addNode->next = BlockHead;
         addNode->prev = NULL;
         addNode->next->prev = addNode;
@@ -59,6 +68,7 @@ void addNodeToLinkedList(Block_t* addNode){
     } else if (curr == NULL){
         addNode->next = NULL;
         addNode->prev = BlockTail;
+        addNode->prev->next = addNode;
         BlockTail = addNode;
         return;
     } else{
@@ -73,7 +83,11 @@ void addNodeToLinkedList(Block_t* addNode){
 void* spiltNodeFromLinkedList(void* _spiltNode, size_t size){
     Block_t* spiltNode = _spiltNode;
     spiltNode->size = spiltNode->size - sizeof(Block_t) - size;
-    void* new_spilt_block_start_addr = (char*)spiltNode + sizeof(Block_t) + spiltNode->size;
+    void* new_spilt_block_start_addr = (void*)spiltNode + sizeof(Block_t) + spiltNode->size;
+    Block_t* temp_block_start_addr = (Block_t*)new_spilt_block_start_addr;
+    temp_block_start_addr->size = size;
+    temp_block_start_addr->next = NULL;
+    temp_block_start_addr->prev = NULL;
     return new_spilt_block_start_addr;
 }
 
@@ -93,26 +107,29 @@ void* ff_malloc(size_t size){
         curr = curr->next;
     }
     void* newblock_start_addr;
-    if (curr = NULL){
+    if (curr == NULL){
         // can not find the available block 
         // create a new block
         newblock_start_addr = sbrk(size + sizeof(Block_t));
         Block_t* temp_block_start_addr = (Block_t*)newblock_start_addr;
         temp_block_start_addr->size = size;  
-        return (char*)newblock_start_addr + sizeof(Block_t); // first part is the block servered for saving info
-    } else if(curr->size < size + sizeof(Block_t)){
+        return (void*)newblock_start_addr + sizeof(Block_t); // first part is the block servered for saving info
+    } //else if(curr->size < size + sizeof(Block_t)){
+    else{
         // remove the node in freed list
         newblock_start_addr = curr;
+        removeNodeFromLinkedList(curr);
+        // curr->size = size;
         curr->next = NULL;
         curr->prev = NULL;
-        removeNodeFromLinkedList(curr);
-        return (char*)newblock_start_addr + sizeof(Block_t);
-    } else if (curr->size >= size + sizeof(Block_t)){
-        // if size was larger than requested size
-        // we should spilt it
-        newblock_start_addr = spiltNodeFromLinkedList(curr, size);
-        return (char*)newblock_start_addr + sizeof(Block_t);       
-    }
+        return (void*)newblock_start_addr + sizeof(Block_t);
+    } 
+    // else if (curr->size >= size + sizeof(Block_t)){
+    //     // if size was larger than requested size
+    //     // we should spilt it
+    //     newblock_start_addr = spiltNodeFromLinkedList(curr, size);
+    //     return (char*)newblock_start_addr + sizeof(Block_t);       
+    // }
   }
 
 
@@ -127,10 +144,30 @@ void ff_free(void* ptr){
     if (ptr == NULL){
         return;
     }
-    Block_t* free_block_addr = (Block_t*)((char*)ptr - sizeof(Block_t));
+    Block_t* free_block_addr = (Block_t*)((void*)ptr - sizeof(Block_t));
     addNodeToLinkedList(free_block_addr);
     // coalesceBlock(free_block_addr);
     return;
+}
+
+
+void printLinkedList(){
+    Block_t* curr = BlockHead;
+    printf("from Head to Tail:");
+    while (curr != NULL){
+        printf("%p -> ", curr);
+        curr = curr -> next;
+    }
+    curr = BlockTail;
+    printf("\n");
+    printf("from Tail to Head:");
+    while (curr != NULL)
+    {
+        printf("%p -> ", curr);
+        curr = curr -> prev;
+    }
+    printf("\n\n\n");
+    
 }
 
 	
