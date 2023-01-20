@@ -12,7 +12,9 @@ typedef struct Block Block_t;
 
 void* ff_malloc(size_t size);
 void ff_free(void* ptr);
-// void printLinkedList();
+unsigned long get_data_segment_size();
+unsigned long get_data_segment_free_space_size();
+void printLinkedList();
 
 
 

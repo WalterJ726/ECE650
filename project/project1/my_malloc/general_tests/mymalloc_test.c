@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
   size = 4;
   expected_sum += size * size;
   array[0] = (int *)MALLOC(size * sizeof(int));
-    
+  // printf("array[0]:%p\n", array[0]);
   for (i=0; i < size; i++) {
     array[0][i] = size;
   } //for i
@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
   size = 16;
   expected_sum += size * size;
   array[1] = (int *)MALLOC(size * sizeof(int));
-    
+  // printf("array[1]:%p\n", array[1]);
   for (i=0; i < size; i++) {
     array[1][i] = size;
   } //for i
