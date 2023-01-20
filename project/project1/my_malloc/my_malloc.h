@@ -2,7 +2,6 @@
 #include <unistd.h>
 
 struct Block{
-    int isAvailable;
     size_t size;
     struct Block* prev;
     struct Block* next;
