@@ -11,20 +11,20 @@ unsigned long total_freed_size;
 int isInitialized;
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-void removeNodeFromLinkedList(void* _deleteNode, Block_t* BlockHead, Block_t* BlockTail){
+void removeNodeFromLinkedList(void* _deleteNode, Block_t** BlockHead, Block_t** BlockTail){
     assert(_deleteNode != NULL);
     Block_t* deleteNode = _deleteNode;
-    if (deleteNode == BlockHead){
-        if (deleteNode == BlockTail){
-            BlockHead = NULL;
-            BlockTail = NULL;
+    if (deleteNode == *BlockHead){
+        if (deleteNode == *BlockTail){
+            *BlockHead = NULL;
+            *BlockTail = NULL;
             return;
         }
         deleteNode->next->prev = NULL;
-        BlockHead = deleteNode->next;
+        *BlockHead = deleteNode->next;
         return;
-    } else if (deleteNode == BlockTail){
-        BlockTail = deleteNode->prev;
+    } else if (deleteNode == *BlockTail){
+        *BlockTail = deleteNode->prev;
         deleteNode->prev->next = NULL;
         return;
     } else{
@@ -35,8 +35,8 @@ void removeNodeFromLinkedList(void* _deleteNode, Block_t* BlockHead, Block_t* Bl
 }
 
 
-void addNodeToLinkedList(Block_t* addNode, Block_t* BlockHead, Block_t* BlockTail){
-    Block_t* curr = BlockHead;
+void addNodeToLinkedList(Block_t* addNode, Block_t** BlockHead, Block_t** BlockTail){
+    Block_t* curr = *BlockHead;
     while(curr != NULL){
         if (curr > addNode){
             break;
@@ -44,24 +44,24 @@ void addNodeToLinkedList(Block_t* addNode, Block_t* BlockHead, Block_t* BlockTai
         curr = curr->next;
     }
 
-    if (curr == BlockHead){
+    if (curr == *BlockHead){
         if (curr == NULL){
-            BlockTail = addNode;
+            *BlockTail = addNode;
             addNode->next = NULL;
             addNode->prev = NULL;
-            BlockHead = addNode;
+            *BlockHead = addNode;
             return;
         }
-        addNode->next = BlockHead;
+        addNode->next = *BlockHead;
         addNode->prev = NULL;
         addNode->next->prev = addNode;
-        BlockHead = addNode;
+        *BlockHead = addNode;
         return;
     } else if (curr == NULL){
         addNode->next = NULL;
-        addNode->prev = BlockTail;
+        addNode->prev = *BlockTail;
         addNode->prev->next = addNode;
-        BlockTail = addNode;
+        *BlockTail = addNode;
         return;
     } else{
         addNode->next = curr;
@@ -84,10 +84,10 @@ void* spiltNodeFromLinkedList(void* _spiltNode, size_t size){
     return new_spilt_block_start_addr;
 }
 
-Block_t* findBlockInFreedList(size_t size, Block_t* BlockHead){
+Block_t* findBlockInFreedList(size_t size, Block_t** BlockHead){
     // best fit
     size_t minSize = INT_MAX;
-    Block_t* curr = BlockHead;
+    Block_t* curr = *BlockHead;
     Block_t* minSize_Block = NULL;
     while (curr != NULL){
     if (curr->size >= size && curr->size < minSize){
@@ -102,7 +102,7 @@ Block_t* findBlockInFreedList(size_t size, Block_t* BlockHead){
     return minSize_Block;       
 }
 
-void coalesceBlock(Block_t* ptr, Block_t* BlockHead, Block_t* BlockTail){
+void coalesceBlock(Block_t* ptr, Block_t** BlockHead, Block_t** BlockTail){
     // find from curr to tail
     Block_t* curr = ptr;
     if (curr->size + sizeof(Block_t) + (void*)curr == (void*)curr->next){
@@ -124,7 +124,7 @@ void coalesceBlock(Block_t* ptr, Block_t* BlockHead, Block_t* BlockTail){
 void* ts_malloc_lock(size_t size){
     // find block in freed list
     pthread_mutex_lock(&lock);
-    Block_t* curr = findBlockInFreedList(size, BlockHead_lock);
+    Block_t* curr = findBlockInFreedList(size, &BlockHead_lock);
     void* newblock_start_addr;
     if (curr == NULL){
         // can not find the available block 
@@ -143,7 +143,7 @@ void* ts_malloc_lock(size_t size){
         // remove the node in freed list
         newblock_start_addr = curr;
         total_freed_size -= (sizeof(Block_t) + curr->size);
-        removeNodeFromLinkedList(curr, BlockHead_lock, BlockTail_lock);
+        removeNodeFromLinkedList(curr, &BlockHead_lock, &BlockTail_lock);
         // curr->size = size;
         curr->next = NULL;
         curr->prev = NULL;
@@ -167,15 +167,15 @@ void ts_free_lock(void* ptr){
     }
     Block_t* free_block_addr = (Block_t*)((void*)ptr - sizeof(Block_t));
     total_freed_size += (free_block_addr->size + sizeof(Block_t));
-    addNodeToLinkedList(free_block_addr, BlockHead_lock, BlockTail_lock);
-    coalesceBlock(free_block_addr, BlockHead_lock, BlockTail_lock);
+    addNodeToLinkedList(free_block_addr, &BlockHead_lock, &BlockTail_lock);
+    coalesceBlock(free_block_addr, &BlockHead_lock, &BlockTail_lock);
     pthread_mutex_unlock(&lock);
     return;
 }
 
 void* ts_malloc_nolock(size_t size){
         // find block in freed list
-    Block_t* curr = findBlockInFreedList(size, BlockHead_nolock);
+    Block_t* curr = findBlockInFreedList(size, &BlockHead_nolock);
     void* newblock_start_addr;
     if (curr == NULL){
         // can not find the available block 
@@ -195,7 +195,7 @@ void* ts_malloc_nolock(size_t size){
         // remove the node in freed list
         newblock_start_addr = curr;
         total_freed_size -= (sizeof(Block_t) + curr->size);
-        removeNodeFromLinkedList(curr, BlockHead_nolock, BlockTail_nolock);
+        removeNodeFromLinkedList(curr, &BlockHead_nolock, &BlockTail_nolock);
         // curr->size = size;
         curr->next = NULL;
         curr->prev = NULL;
@@ -215,8 +215,8 @@ void ts_free_nolock(void* ptr){
     }
     Block_t* free_block_addr = (Block_t*)((void*)ptr - sizeof(Block_t));
     total_freed_size += (free_block_addr->size + sizeof(Block_t));
-    addNodeToLinkedList(free_block_addr, BlockHead_nolock, BlockTail_nolock);
-    coalesceBlock(free_block_addr, BlockHead_nolock, BlockTail_nolock);
+    addNodeToLinkedList(free_block_addr, &BlockHead_nolock, &BlockTail_nolock);
+    coalesceBlock(free_block_addr, &BlockHead_nolock, &BlockTail_nolock);
     return;
 }
 
