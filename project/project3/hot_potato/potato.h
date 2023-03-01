@@ -25,25 +25,6 @@ struct player_info{
 };
 
 
-// class Player{
-//     private:
-//         char IP_addr[];
-//         unsigned int port_num;
-//     public:
-//         // Player(){
-//         //     IP_addr = "0.0.0.0";
-//         //     port_num = 12345;
-//         // }
-//         Player(char* IP_addr, unsigned int & port_num) : IP_addr(IP_addr), port_num(port_num) {}
-        
-//         char* get_IP_addr(){
-//             return IP_addr;
-//         }
-        
-//         unsigned int get_port_num(){
-//             return port_num;
-//         }
-// };
 
 void printErrorMsg(string msg){
   cerr << msg << endl;
@@ -98,9 +79,7 @@ unsigned short get_in_port(struct sockaddr *sa){
 }
 
 
-
-
-int initServer(char* port_num){
+int start_listen(char* port_num){
   int status;
   int socket_fd;
   struct addrinfo host_info;
@@ -150,6 +129,80 @@ int initServer(char* port_num){
   return socket_fd;
 }
 
+int connect_to_server(char* hostname_input, char* port_input){
+  int status;
+  int socket_fd;
+  struct addrinfo host_info;
+  struct addrinfo *host_info_list;
+  const char *hostname = hostname_input;
+  const char *port     = port_input;
+  memset(&host_info, 0, sizeof(host_info));
+  host_info.ai_family   = AF_UNSPEC;
+  host_info.ai_socktype = SOCK_STREAM;
+
+  status = getaddrinfo(hostname, port, &host_info, &host_info_list);
+  if (status != 0) {
+    cerr << "Error: cannot get address info for host" << endl;
+    cerr << "  (" << hostname << "," << port << ")" << endl;
+    return -1;
+  } //if
+
+  socket_fd = socket(host_info_list->ai_family, 
+		     host_info_list->ai_socktype, 
+		     host_info_list->ai_protocol);
+  if (socket_fd == -1) {
+    cerr << "Error: cannot create socket" << endl;
+    cerr << "  (" << hostname << "," << port << ")" << endl;
+    return -1;
+  } //if
+  
+  cout << "Connecting to " << hostname << " on port " << port << "..." << endl;
+  
+  status = connect(socket_fd, host_info_list->ai_addr, host_info_list->ai_addrlen);
+  if (status == -1) {
+    cerr << "Error: cannot connect to socket" << endl;
+    cerr << "  (" << hostname << "," << port << ")" << endl;
+    return -1;
+  } //if
+  freeaddrinfo(host_info_list);
+  return socket_fd;
+}
+
+
+std::string getIpaddress(int socket_fd, const std::string& mode){
+  struct sockaddr_storage socket_addr;
+  socklen_t socket_addr_len = sizeof(socket_addr);
+
+  char ipAddress[INET6_ADDRSTRLEN];
+  if (mode == "Own"){
+    getsockname(socket_fd, (struct sockaddr*)&socket_addr, &socket_addr_len);//获取sockfd表示的连接上的本地地址
+  }
+  if (mode == "Peer"){
+    getpeername(socket_fd, (struct sockaddr*)&socket_addr, &socket_addr_len);//获取sockfd表示的连接上的本地地址
+  }
+  inet_ntop(socket_addr.ss_family,
+    get_in_addr((struct sockaddr *)&socket_addr),
+    ipAddress, sizeof ipAddress);
+  return std::string(ipAddress, strlen(ipAddress));
+}
+
+unsigned int getPort(int socket_fd, const std::string& mode){
+  struct sockaddr_storage socket_addr;
+  socklen_t socket_addr_len = sizeof(socket_addr);
+  char ipAddress[INET6_ADDRSTRLEN];
+  if (mode == "Own"){
+    getsockname(socket_fd, (struct sockaddr*)&socket_addr, &socket_addr_len);//获取sockfd表示的连接上的本地地址
+  }
+  if (mode == "Peer"){
+    getpeername(socket_fd, (struct sockaddr*)&socket_addr, &socket_addr_len);//获取sockfd表示的连接上的本地地址
+  }
+
+  inet_ntop(socket_addr.ss_family,
+      get_in_addr((struct sockaddr *)&socket_addr),
+      ipAddress, sizeof ipAddress);
+  unsigned int client_port_num = ntohs(get_in_port((struct sockaddr *)&socket_addr));
+  return client_port_num;
+}
 
 
 
