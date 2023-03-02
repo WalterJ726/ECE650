@@ -4,12 +4,22 @@
 int main(int argc, char *argv[])
 {
   if (argc != 4){
-    printErrorMsg("Usage: programName <port_num> <num_players> <num_hops>.\n");
+    printErrorMsg("Usage: programName <port_num> <num_players> <num_hops>.");
   }
   srand((unsigned int)time(NULL));
   int status = 0;
-  int num_players = convertNum(argv[2]);
-  int num_hops = convertNum(argv[3]);
+  char * ptr;
+  int num_players = strtol(argv[2], &ptr, 10);
+  if (num_players <= 0){
+    printErrorMsg("The number of player must larget or equal than 2");
+  }
+  if (num_players == 1){
+    return 0;
+  }
+  int num_hops = strtol(argv[3], &ptr, 10);
+  if (num_hops >= 513 || num_hops < 0){
+    printErrorMsg("The number of hops should be less or equal than 512 and larger or equal than 0");
+  }
   int socket_fd = start_listen(argv[1]);
   struct potato_t Potato;
   memset(&Potato, 0, sizeof(Potato));
@@ -44,13 +54,19 @@ int main(int argc, char *argv[])
         std::cout << "Player " << i << " is ready to play" << std::endl;
   }
 
-
+  int random = rand() % num_players;
+  std::cout <<"Ready to start the game, sending potato to player " << random << std::endl;
   if (Potato.num_hops == 0){
+      Potato.num_hops = -1;
+      std::cout << "Trace of potato:" << std::endl;
+      std::cout << std::endl;
+      for (int i = 0; i < num_players; i ++ ){
+          try_send_all(client_connection_fd_list[i], &Potato, sizeof(Potato), 0);
+          close(client_connection_fd_list[i]);
+      }
       close(socket_fd);
       return 0;
   } else {
-    int random = rand() % num_players;
-    std::cout <<"Ready to start the game, sending potato to player " << random << std::endl;
     try_send_all(client_connection_fd_list[random], &Potato, sizeof(Potato), 0);
   }
 
