@@ -1,7 +1,5 @@
 #include "potato.h"
 
-using namespace std;
-
 int main(int argc, char *argv[])
 {
   if (argc != 3){
@@ -9,78 +7,156 @@ int main(int argc, char *argv[])
   }
   // connect to server
   int ringmaster_socket_fd = connect_to_server(argv[1], argv[2]);
-  
+  std::cout << "ringmaster_socket_fd: " << ringmaster_socket_fd << std::endl;
   // receive player id and total number 
   int player_id_info[2]; 
-  recv(ringmaster_socket_fd, player_id_info, sizeof(player_id_info), 0);
-
-  int listen_socket_fd = start_listen(""); // random select a port to listen
-  std::string ownIpaddress = getIpaddress(listen_socket_fd, "Own");
-  unsigned int ownPort = getPort(listen_socket_fd, "Own");
-
+  recv(ringmaster_socket_fd, player_id_info, sizeof(player_id_info), MSG_WAITALL);
+  srand((unsigned int)time(NULL) + player_id_info[0]);
+  int client_listen_socket_fd = start_listen(""); // random select a port to listen
+  std::string ownIpaddress = getIpaddress(client_listen_socket_fd, "Own");
+  unsigned int ownPort = getPort(client_listen_socket_fd, "Own");
+  std::cout << "Waiting for connection on port " << ownPort << std::endl;
   struct player_info own_info;
   strcpy(own_info.ipAddress, ownIpaddress.c_str());
   own_info.port_num = ownPort;
   try_send_all(ringmaster_socket_fd, &own_info, sizeof(own_info), 0);
 
-
-  
-
   struct player_info next_player;
-  recv(ringmaster_socket_fd, &next_player, sizeof(next_player), 0);
-  cout << "Next player IP: " << next_player.ipAddress << endl;
-  cout << "Next player Port: " << next_player.port_num << endl;
+  recv(ringmaster_socket_fd, &next_player, sizeof(next_player), MSG_WAITALL);
+  std::cout << "Next player IP: " << next_player.ipAddress << std::endl;
+  std::cout << "Next player Port: " << next_player.port_num << std::endl;
   char port_num_input[10];
   sprintf(port_num_input, "%u", next_player.port_num);
   // connect to next player
   int next_player_fd = connect_to_server(next_player.ipAddress, port_num_input);
+  int listen_socket_fd = tryAccept(client_listen_socket_fd);
+  std::cout << "Connected as player " << player_id_info[0] << " out of " << player_id_info[1] << " total players"<< std::endl;
+  std::cout << "player: " << player_id_info[0] << " is ready to play" << std::endl;
+  
 
-  char prev_player_port_num[10];
-  sprintf(prev_player_port_num, "%u", client_port_num);
-  int prev_player_fd = start_listen(prev_player_port_num);
 
-
-//   int s1, s2, n;
-//   fd_set readfds;
-//   struct timeval tv;
-//   char buf1[256], buf2[256];
-
-//   // pretend we've connected both to a server at this point
-//    //s1 = socket(...);
-//    //s2 = socket(...);
-//   //connect(s1, ...)...
-//   //connect(s2, ...)...
-//   // clear the set ahead of time
-//   FD_ZERO(&readfds);
-
-// // add our descriptors to the set
-//   FD_SET(s1, &readfds);
-//   FD_SET(s2, &readfds);
-
-//   // since we got s2 second, it's the "greater", so we use that for
-//   // the n param in select()
-//   n = s2 + 1;
-
-//   // wait until either socket has data ready to be recv()d (timeout 10.5 secs)
-//   tv.tv_sec = 10;
-//   tv.tv_usec = 500000;
-//   rv = select(n, &readfds, NULL, NULL, &tv);
-//   if (rv == -1) {
-//   perror("select"); // error occurred in select()
-//   } else if (rv == 0) {
-//   printf("Timeout occurred! No data after 10.5 seconds.\n");
-//   } else {
-//   // one or both of the descriptors have data
-//   if (FD_ISSET(s1, &readfds)) {
-//   recv(s1, buf1, sizeof buf1, 0);
-//   }
-//   if (FD_ISSET(s2, &readfds)) {
-//   recv(s2, buf2, sizeof buf2, 0);
-//   }
-//   }
-
-  close(prev_player_fd);
+  fd_set readfds;
+  struct timeval tv;
+  tv.tv_sec = 1;
+  bool end_flag = false;
+  struct potato_t Potato;
+  int temp_n = std::max(listen_socket_fd, next_player_fd);
+  int n = std::max(ringmaster_socket_fd, temp_n) + 1;
+  int socket_fd_group[3] = {listen_socket_fd, next_player_fd, ringmaster_socket_fd};
+  while(!end_flag){
+    FD_ZERO(&readfds);
+    FD_SET(listen_socket_fd, &readfds);
+    FD_SET(next_player_fd, &readfds);
+    FD_SET(ringmaster_socket_fd, &readfds);
+    int rv = select(n, &readfds, NULL, NULL, &tv);
+    if (rv == -1)
+    {
+        perror("select"); // error occurred in select()
+        break;
+    }
+    else if (rv == 0)
+    {
+        std::cout << "Timeout occurred! No data after 10.5 seconds." << std::endl;
+        break;
+    }
+    else{
+          if (FD_ISSET(ringmaster_socket_fd, &readfds))
+          {
+              // recv from ringmaster
+              std::cout << "from ringmaster" << std::endl;
+              int status = recv(ringmaster_socket_fd, &Potato, sizeof(Potato), 0);
+              if (status <= 0){
+                continue;
+              }
+              if (Potato.num_hops == -1){
+                // ending situation
+                end_flag = true;
+                break;
+              }
+              int index = Potato.total_hops - Potato.num_hops;
+              std::cout << "Potato.total_hops: " << Potato.total_hops << std::endl;
+              std::cout << "Potato.num_hops: " << Potato.num_hops << std::endl;
+              std::cout << "Potato.traces[index]: " << index << "player_id_info[0]: " << player_id_info[0] << std::endl;
+              Potato.traces[index] = player_id_info[0];
+              Potato.num_hops -= 1;
+              if (Potato.num_hops == 0){
+                  end_flag = true;
+                  std::cout << "I'm it" << std::endl;
+                  std::cout << "Potato.num_hops: " << Potato.num_hops << std::endl;
+                  try_send_all(ringmaster_socket_fd, &Potato, sizeof(Potato), 0);
+                  break;
+              } else {
+                // send to another player 
+                int random = rand() % 2;
+                std::cout << "random: is " << random << std::endl;
+                std::cout << "Sending potato to " << getPlayerNum(player_id_info[0], player_id_info[1], random) << std::endl;
+                try_send_all(socket_fd_group[random], &Potato, sizeof(Potato), 0);
+              }
+          }
+          
+          if (FD_ISSET(listen_socket_fd, &readfds))
+          {
+              // recv from prev player
+              int status = recv(listen_socket_fd, &Potato, sizeof(Potato), 0);
+              if (status <= 0){
+                // recv failed
+                continue;
+              }
+              int index = Potato.total_hops - Potato.num_hops;
+              std::cout << "Potato.traces[index]: " << index << "player_id_info[0]: " << player_id_info[0] << std::endl;
+              Potato.traces[index] = player_id_info[0];
+              Potato.num_hops -= 1;
+              if (Potato.num_hops == 0){
+                  end_flag = true;
+                  std::cout << "I'm it" << std::endl;
+                  std::cout << "Potato.num_hops: " << Potato.num_hops << std::endl;
+                  try_send_all(ringmaster_socket_fd, &Potato, sizeof(Potato), 0);
+                  break;
+              } else {
+                // send to another player 
+                int random = rand() % 2;
+                std::cout << "Sending potato to " << getPlayerNum(player_id_info[0], player_id_info[1], random) << std::endl;;
+                try_send_all(socket_fd_group[random], &Potato, sizeof(Potato), 0);
+                // if (Potato.num_hops == 1){
+                //   end_flag = true;
+                //   break;
+                // }
+              }
+          }
+          if (FD_ISSET(next_player_fd, &readfds))
+          {
+              // recv from next player
+              int status = recv(next_player_fd, &Potato, sizeof(Potato), 0);
+              if (status <= 0){
+                // recv failed
+                continue;
+              }
+              int index = Potato.total_hops - Potato.num_hops;
+              std::cout << "Potato.traces[index]: " << index << "player_id_info[0]: " << player_id_info[0] << std::endl;
+              Potato.traces[index] = player_id_info[0];
+              Potato.num_hops -= 1;
+              if (Potato.num_hops == 0){
+                  end_flag = true;
+                  std::cout << "I'm it" << std::endl;
+                  try_send_all(ringmaster_socket_fd, &Potato, sizeof(Potato), MSG_WAITALL);
+                  break;
+              } else {
+                // send to another player 
+                int random = rand() % 2;
+                std::cout << "Sending potato to " << getPlayerNum(player_id_info[0], player_id_info[1], random) << std::endl;;
+                try_send_all(socket_fd_group[random], &Potato, sizeof(Potato), 0);
+                // if (Potato.num_hops == 1){
+                //   end_flag = true;
+                //   break;
+                // }
+              }
+          }
+    }
+  }
+  
+  close(listen_socket_fd);
   close(next_player_fd);
+  close(client_listen_socket_fd);
   close(ringmaster_socket_fd);
   return 0;
 }

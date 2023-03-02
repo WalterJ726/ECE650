@@ -3,20 +3,19 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <iostream>
+#include <algorithm>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <vector>
 #include <cstring>
 #include <string>
 #include <stdlib.h>
-
-
-using namespace std;
-
-
+#include <assert.h>
 
 typedef struct potato_t{
-    int hops;
+    int total_hops;
+    int num_hops;
+    int traces[512];
 }potato;
 
 struct player_info{
@@ -24,10 +23,8 @@ struct player_info{
   unsigned int port_num;
 };
 
-
-
-void printErrorMsg(string msg){
-  cerr << msg << endl;
+void printErrorMsg(std::string msg){
+  std::cerr << msg << std::endl;
   exit(EXIT_FAILURE);
 }
 
@@ -61,12 +58,11 @@ int try_send_all(int sock_fd, void* data, size_t data_len, int flag){
     size_t byteleft = data_len;
     int n;
     while (total < data_len){
-      n = send(sock_fd, data + total, byteleft, flag); 
+      n = send(sock_fd, (char*)data + total, byteleft, flag); 
       if (n == -1) {break;}
       total += n;
       byteleft -= n;
     }
-
     return n == -1 ? -1 : 0;
 }
 
@@ -95,8 +91,8 @@ int start_listen(char* port_num){
 
   status = getaddrinfo(hostname, port, &host_info, &host_info_list);
   if (status != 0) {
-    cerr << "Error: cannot get address info for host" << endl;
-    cerr << "  (" << hostname << "," << port << ")" << endl;
+    std::cerr << "Error: cannot get address info for host" << std::endl;
+    std::cerr << "  (" << hostname << "," << port << ")" << std::endl;
     return -1;
   } //if
 
@@ -104,8 +100,8 @@ int start_listen(char* port_num){
 		     host_info_list->ai_socktype, 
 		     host_info_list->ai_protocol);
   if (socket_fd == -1) {
-    cerr << "Error: cannot create socket" << endl;
-    cerr << "  (" << hostname << "," << port << ")" << endl;
+    std::cerr << "Error: cannot create socket" << std::endl;
+    std::cerr << "  (" << hostname << "," << port << ")" << std::endl;
     return -1;
   } //if
 
@@ -113,19 +109,18 @@ int start_listen(char* port_num){
   status = setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
   status = bind(socket_fd, host_info_list->ai_addr, host_info_list->ai_addrlen);
   if (status == -1) {
-    cerr << "Error: cannot bind socket" << endl;
-    cerr << "  (" << hostname << "," << port << ")" << endl;
+    std::cerr << "Error: cannot bind socket" << std::endl;
+    std::cerr << "  (" << hostname << "," << port << ")" << std::endl;
     return -1;
   } //if
 
   status = listen(socket_fd, 100);
   if (status == -1) {
-    cerr << "Error: cannot listen on socket" << endl; 
-    cerr << "  (" << hostname << "," << port << ")" << endl;
+    std::cerr << "Error: cannot listen on socket" << std::endl; 
+    std::cerr << "  (" << hostname << "," << port << ")" << std::endl;
     return -1;
   } //if
   freeaddrinfo(host_info_list);
-  cout << "Waiting for connection on port " << port << endl;
   return socket_fd;
 }
 
@@ -142,8 +137,8 @@ int connect_to_server(char* hostname_input, char* port_input){
 
   status = getaddrinfo(hostname, port, &host_info, &host_info_list);
   if (status != 0) {
-    cerr << "Error: cannot get address info for host" << endl;
-    cerr << "  (" << hostname << "," << port << ")" << endl;
+    std::cerr << "Error: cannot get address info for host" << std::endl;
+    std::cerr << "  (" << hostname << "," << port << ")" << std::endl;
     return -1;
   } //if
 
@@ -151,17 +146,15 @@ int connect_to_server(char* hostname_input, char* port_input){
 		     host_info_list->ai_socktype, 
 		     host_info_list->ai_protocol);
   if (socket_fd == -1) {
-    cerr << "Error: cannot create socket" << endl;
-    cerr << "  (" << hostname << "," << port << ")" << endl;
+    std::cerr << "Error: cannot create socket" << std::endl;
+    std::cerr << "  (" << hostname << "," << port << ")" << std::endl;
     return -1;
   } //if
   
-  cout << "Connecting to " << hostname << " on port " << port << "..." << endl;
-  
   status = connect(socket_fd, host_info_list->ai_addr, host_info_list->ai_addrlen);
   if (status == -1) {
-    cerr << "Error: cannot connect to socket" << endl;
-    cerr << "  (" << hostname << "," << port << ")" << endl;
+    std::cerr << "Error: cannot connect to socket" << std::endl;
+    std::cerr << "  (" << hostname << "," << port << ")" << std::endl;
     return -1;
   } //if
   freeaddrinfo(host_info_list);
@@ -205,4 +198,29 @@ unsigned int getPort(int socket_fd, const std::string& mode){
 }
 
 
+int getPlayerNum(int own, int total, int mode){
+  if (mode == 0){
+     // get prev player number
+    if (own == 0){
+      return total - 1;
+    } else {
+      return own - 1;
+    }
+  } else{
+    // get next player number
+    return (own + 1) % total;
+  }
+}
 
+
+
+int tryAccept(int listen_socket_fd){
+    struct sockaddr_storage socket_addr;
+    socklen_t socket_addr_len = sizeof(socket_addr);
+    int client_connection_fd = client_connection_fd = accept(listen_socket_fd, (struct sockaddr *)&socket_addr, &socket_addr_len);
+    if (client_connection_fd == -1) {
+      std::cerr << "Error: cannot accept connection on socket" << std::endl;
+      return -1;
+    }
+    return client_connection_fd;
+}
