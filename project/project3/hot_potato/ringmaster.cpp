@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
       n = std::max(n, client_connection_fd_list[i]);
       FD_SET(client_connection_fd_list[i], &readfds);
   }
-  int rv = select(n + 1, &readfds, NULL, NULL, &tv);
+  int rv = select(n + 1, &readfds, NULL, NULL, NULL);
   int ending_player;
   for (int i = 0; i < num_players; i ++ ){
     if (FD_ISSET(client_connection_fd_list[i], &readfds)){

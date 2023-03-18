@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
   recv(ringmaster_socket_fd, player_id_info, sizeof(player_id_info), MSG_WAITALL);
   srand((unsigned int)time(NULL) + player_id_info[0]);
   int client_listen_socket_fd = start_listen(""); // random select a port to listen
-  std::string ownIpaddress = getIpaddress(client_listen_socket_fd, "Own");
+  std::string ownIpaddress = getIpaddress(ringmaster_socket_fd, "Own");
   unsigned int ownPort = getPort(client_listen_socket_fd, "Own");
   struct player_info own_info;
   strcpy(own_info.ipAddress, ownIpaddress.c_str());
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
     FD_SET(listen_socket_fd, &readfds);
     FD_SET(next_player_fd, &readfds);
     FD_SET(ringmaster_socket_fd, &readfds);
-    int rv = select(n, &readfds, NULL, NULL, &tv);
+    int rv = select(n, &readfds, NULL, NULL, NULL);
     if (rv == -1)
     {
         perror("select"); // error occurred in select()
