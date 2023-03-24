@@ -25,7 +25,7 @@ void create_all_tables(connection *C, string filename){
   }
   tablesql.close();
   executeSQL(sql, C);
-  cout << "Table created successfully" << endl;
+  // cout << "Table created successfully" << endl;
 }
 
 void create_state_table(connection *C, string filename){
@@ -120,7 +120,7 @@ void add_player(connection *C, int team_id, int jersey_num, string first_name, s
   sql += to_string(bpg);
   sql += string("); ");
   executeSQL(sql, C);
-  cout << "add values: " << first_name  << " successful" << endl;
+  // cout << "add values: " << first_name  << " successful" << endl;
 
 }
 
@@ -138,7 +138,7 @@ void add_team(connection *C, string name, int state_id, int color_id, int wins, 
   sql += to_string(losses);
   sql += string("); ");
   executeSQL(sql, C);
-  cout << "add values: " << name  << " successful" << endl;
+  // cout << "add values: " << name  << " successful" << endl;
 }
 
 
@@ -151,7 +151,7 @@ void add_state(connection *C, string name)
   sql += C->quote(name);
   sql += string("); ");
   executeSQL(sql, C);
-  cout << "add values: " << name  << " successful" << endl;
+  // cout << "add values: " << name  << " successful" << endl;
 }
 
 
@@ -164,7 +164,7 @@ void add_color(connection *C, string name)
   sql += C->quote(name);
   sql += string("); ");
   executeSQL(sql, C);
-  cout << "add values: " << name  << " successful" << endl;
+  // cout << "add values: " << name  << " successful" << endl;
 }
 
 /*
@@ -182,41 +182,167 @@ void query1(connection *C,
             )
 {
     /* Create SQL statement */
-    string sql = "SELECT * from COMPANY";
-
+    string sql = "SELECT * from PLAYER";
+    if (use_mpg){
+      sql += " WHERE ";
+      sql += "MPG>=" + to_string(min_mpg);
+      sql += " AND " + to_string(max_mpg) + ">=MPG";
+    }
+    if (use_ppg){
+      if (use_mpg){
+        sql += " AND ";
+      } else {
+        sql += " WHERE ";
+      }
+      sql += "PPG>=" + to_string(min_ppg);
+      sql += " AND " + to_string(max_ppg) + ">=PPG";
+    }
+    if (use_rpg){
+      if (use_mpg || use_ppg){
+        sql += " AND ";
+      } else {
+        sql += " WHERE ";
+      }
+      sql += "RPG>=" + to_string(min_rpg);
+      sql += " AND " + to_string(max_rpg) + ">=RPG";
+    }
+    if (use_apg){
+      if (use_mpg || use_ppg || use_rpg){
+        sql += " AND ";
+      } else {
+        sql += " WHERE ";
+      }
+      sql += "APG>=" + to_string(min_apg);
+      sql += " AND " + to_string(max_apg) + ">=APG";
+    } 
+    if (use_spg){
+      if (use_mpg || use_ppg || use_rpg || use_apg){
+        sql += " AND ";
+      } else {
+        sql += " WHERE ";
+      }
+      sql += "SPG>=" + to_string(min_spg);
+      sql += " AND " + to_string(max_spg) + ">=SPG";
+    }
+    if (use_bpg){
+      if (use_mpg || use_ppg || use_rpg || use_apg || use_spg){
+        sql += " AND ";
+      } else {
+        sql += " WHERE ";
+      }
+      sql += "BPG>=" + to_string(min_bpg);
+      sql += " AND " + to_string(max_bpg) + ">=BPG";
+    }
+    sql += ";";
+    // cout << sql << endl;
     /* Create a non-transactional object. */
-    nontransaction N(C);
-      
+    nontransaction N(*C);
     /* Execute SQL query */
     result R( N.exec( sql ));
-      
+    cout << "PLAYER_ID " << "TEAM_ID " << "UNIFORM_NUM " << "FIRST_NAME ";
+    cout << "LAST_NAME " << "MPG " << "PPG " << "RPG " << "APG "; 
+    cout << "SPG " << "BPG " << endl;
     /* List down all the records */
     for (result::const_iterator c = R.begin(); c != R.end(); ++c) {
-      cout << "ID = " << c[0].as<int>() << endl;
-      cout << "Name = " << c[1].as<string>() << endl;
-      cout << "Age = " << c[2].as<int>() << endl;
-      cout << "Address = " << c[3].as<string>() << endl;
-      cout << "Salary = " << c[4].as<float>() << endl;
+      cout << c[0].as<int>() << " ";
+      cout << c[1].as<int>() << " ";
+      cout << c[2].as<int>() << " ";
+      cout << c[3].as<string>() << " ";
+      cout << c[4].as<string>() << " ";
+      cout << c[5].as<int>() << " ";
+      cout << c[6].as<int>() << " ";
+      cout << c[7].as<int>() << " ";
+      cout << c[8].as<int>() << " ";
+      cout << fixed << setprecision(1);
+      cout << c[9].as<double>() << " ";
+      cout << c[10].as<double>() << endl;
     }
-    cout << "Operation done successfully" << endl;
 }
 
 
 void query2(connection *C, string team_color)
 {
+      /* Create SQL statement */
+    string sql = "SELECT TEAM.NAME from TEAM, COLOR ";
+    sql += "WHERE COLOR.COLOR_ID=TEAM.COLOR_ID AND ";
+    sql += "COLOR.NAME=" + C->quote(team_color) + ";";
+    // cout << sql << endl;
+    /* Create a non-transactional object. */
+    nontransaction N(*C);
+      
+    /* Execute SQL query */
+    result R( N.exec( sql ));
+    cout << "NAME " << endl;
+    /* List down all the records */
+    for (result::const_iterator c = R.begin(); c != R.end(); ++c) {
+      cout << c[0].as<string>() << endl;
+    }
 }
 
 
 void query3(connection *C, string team_name)
 {
+    /* Create SQL statement */
+    string sql = "SELECT FIRST_NAME, LAST_NAME from TEAM, PLAYER ";
+    sql += "WHERE PLAYER.TEAM_ID=TEAM.TEAM_ID AND ";
+    sql += "TEAM.NAME=" + C->quote(team_name) + " ";
+    sql += "ORDER BY PPG DESC;";
+    // cout << sql << endl;
+    /* Create a non-transactional object. */
+    nontransaction N(*C);
+      
+    /* Execute SQL query */
+    result R( N.exec( sql ));
+    cout << "FIRST_NAME " << "LAST_NAME" << endl;
+    /* List down all the records */
+    for (result::const_iterator c = R.begin(); c != R.end(); ++c) {
+      cout << c[0].as<string>() << " ";
+      cout << c[1].as<string>() << endl;
+    }
 }
 
 
 void query4(connection *C, string team_state, string team_color)
 {
+      /* Create SQL statement */
+    string sql = "SELECT UNIFORM_NUM,FIRST_NAME,LAST_NAME from STATE,COLOR,PLAYER,TEAM ";
+    sql += "WHERE TEAM.TEAM_ID=PLAYER.TEAM_ID AND TEAM.STATE_ID=STATE.STATE_ID AND ";
+    sql += "TEAM.COLOR_ID=COLOR.COLOR_ID AND ";
+    sql += "COLOR.NAME=" + C->quote(team_color) + " AND ";
+    sql += "STATE.NAME=" + C->quote(team_state) + ";";
+    // cout << sql << endl;
+    /* Create a non-transactional object. */
+    nontransaction N(*C);
+      
+    /* Execute SQL query */
+    result R( N.exec( sql ));
+    cout << "UNIFORM_NUM " << "FIRST_NAME " << "LAST_NAME" << endl;
+    /* List down all the records */
+    for (result::const_iterator c = R.begin(); c != R.end(); ++c) {
+      cout << c[0].as<int>() << " ";
+      cout << c[1].as<string>() << " ";
+      cout << c[2].as<string>() << endl;
+    }
 }
 
 
 void query5(connection *C, int num_wins)
 {
+    /* Create SQL statement */
+    string sql = "SELECT FIRST_NAME,LAST_NAME,TEAM.NAME,WINS from PLAYER,TEAM ";
+    sql += "WHERE TEAM.TEAM_ID=PLAYER.TEAM_ID AND ";
+    sql += "WINS>" + to_string(num_wins) + ";";
+    // cout << sql << endl;
+    /* Create a non-transactional object. */
+    nontransaction N(*C);
+    /* Execute SQL query */
+    result R( N.exec( sql ));
+    cout << "FIRST_NAME " << "LAST_NAME " << "NAME " << "WINS" << endl;
+    /* List down all the records */
+    for (result::const_iterator c = R.begin(); c != R.end(); ++c) {
+      cout << c[0].as<string>() << " ";
+      cout << c[1].as<string>() << " ";
+      cout << c[2].as<string>() << " ";
+      cout << c[3].as<int>() << endl;
+    }
 }
