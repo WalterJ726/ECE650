@@ -74,5 +74,7 @@ query1(1,35, 40,\
     0, 0.4, 3.4)
 query2("Green")
 query3("Miami")
+query3("Duke")
 query4("NC", "Green")
+query4("NC", "DarkBlue")
 query5(12)
